@@ -11,9 +11,24 @@ mov sp, 0x1000
 mov ax, 0x0003
 int 0x10
 
-; Escreve mensagem inicial
+; Escreve mensagem inicial diretamente na memória de vídeo
+mov ax, 0xB800
+mov es, ax
+mov di, 0
 mov si, msg
-call print_string
+mov ah, 0x0F  ; Branco brilhante
+
+.msg_loop:
+    lodsb
+    or al, al
+    jz .msg_done
+    stosw
+    jmp .msg_loop
+
+.msg_done:
+
+; Posição inicial para as teclas (linha 2)
+mov di, 160 * 2  ; Cada linha tem 160 bytes (80 caracteres * 2)
 
 ; Loop principal
 .key_loop:
@@ -30,10 +45,15 @@ call print_string
     cmp al, 0x1B
     je .exit
     
-    ; Mostra a tecla pressionada
-    mov ah, 0x0E
-    mov bh, 0
-    int 0x10
+    ; Escreve a tecla diretamente na memória de vídeo
+    mov [es:di], al
+    mov byte [es:di+1], 0x0C  ; Vermelho brilhante
+    add di, 2
+    
+    ; Se chegou ao fim da linha, pula para a próxima
+    cmp di, 160 * 25
+    jb .key_loop
+    mov di, 160 * 2  ; Volta para o início da linha 2
     
     jmp .key_loop
 
@@ -42,19 +62,5 @@ call print_string
     mov ax, 0x0003
     int 0x10
     jmp $
-
-print_string:
-    pusha
-.loop:
-    lodsb
-    or al, al
-    jz .done
-    mov ah, 0x0E
-    mov bh, 0
-    int 0x10
-    jmp print_string
-.done:
-    popa
-    ret
 
 msg db "Digite algo (ESC=sair): ", 0
